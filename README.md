@@ -92,6 +92,21 @@ STATUS_API_TOKEN=demo-status-token
 REVIEW_API_BASE=https://review.example.com/api
 REVIEW_API_TOKEN=demo-review-token
 
+## Environment Switching
+
+Use `.env` as the active runtime configuration.
+
+Switch to local:
+```powershell
+Copy-Item .env.local .env -Force
+
+Switch to Azure:
+Copy-Item .env.azure .env -Force
+
+Verify active configuration:
+
+python -c "from shared.config import get_business_data_config; print(get_business_data_config())"
+
 
 
 
