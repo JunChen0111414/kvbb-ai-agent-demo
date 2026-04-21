@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # MCP-AI-Agent-test
 
 Reusable MCP scaffold for KVBB-like agent projects.
@@ -222,3 +223,4 @@ connect notification to a real mail or messaging API
 connect human_review to a real review workflow system
 add Azure PostgreSQL environment configuration
 integrate MCP servers with a real agent runtime
+=======
