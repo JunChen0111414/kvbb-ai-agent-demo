@@ -4,36 +4,46 @@ from agent import run_agent
 st.set_page_config(page_title="KVBB AI Assistant", layout="wide")
 
 st.title("🤖 KVBB AI Assistant")
-st.markdown("Ask questions about cases, workflows, or decisions.")
 
-# 聊天记录初始化
-if "history" not in st.session_state:
-    st.session_state.history = []
+# 初始化聊天历史
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# 输入框
-user_input = st.text_input("Your question:")
+# 显示历史
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
 
-if st.button("Send") and user_input:
-    st.session_state.history.append(("user", user_input))
+# 输入框（ChatGPT风格）
+user_input = st.chat_input("Ask about a case...")
 
-    # 捕获 agent 输出
-    import io
-    import sys
+if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
 
-    buffer = io.StringIO()
-    sys.stdout = buffer
+    with st.chat_message("user"):
+        st.write(user_input)
 
-    run_agent(user_input)
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            import io
+            import sys
 
-    sys.stdout = sys.__stdout__
-    output = buffer.getvalue()
+            buffer = io.StringIO()
+            sys.stdout = buffer
 
-    st.session_state.history.append(("agent", output))
+            run_agent(user_input)
 
-# 显示聊天记录
-for role, text in st.session_state.history:
-    if role == "user":
-        st.markdown(f"**👤 You:** {text}")
-    else:
-        st.markdown(f"**🤖 Agent:**")
-        st.code(text, language="text")
+            sys.stdout = sys.__stdout__
+            output = buffer.getvalue()
+
+            # 👉 只保留最后回答（去掉 debug）
+            if "[Agent Response]:" in output:
+                answer = output.split("[Agent Response]:")[-1].strip()
+            else:
+                answer = output
+
+            st.write(answer)
+
+            st.session_state.messages.append(
+                {"role": "assistant", "content": answer}
+            )
