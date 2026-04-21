@@ -24,17 +24,22 @@ if user_input:
         st.write(user_input)
 
     with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            import io
-            import sys
+    with st.spinner("Thinking..."):
+        import io
+        import sys
 
-            buffer = io.StringIO()
-            sys.stdout = buffer
+        buffer = io.StringIO()
+        sys.stdout = buffer
 
+        try:
             run_agent(user_input)
-
+        except Exception as e:
             sys.stdout = sys.__stdout__
-            output = buffer.getvalue()
+            st.error(f"❌ Error: {str(e)}")
+            st.stop()
+
+        sys.stdout = sys.__stdout__
+        output = buffer.getvalue()
 
             # 👉 只保留最后回答（去掉 debug）
             if "[Agent Response]:" in output:
