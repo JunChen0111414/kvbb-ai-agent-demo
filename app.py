@@ -17,29 +17,46 @@ for msg in st.session_state.messages:
 # 输入框（ChatGPT风格）
 user_input = st.chat_input("Ask about a case...")
 
+user_input = st.chat_input("Ask about a case...")
+
 if user_input:
-    st.session_state.messages.append({"role": "user", "content": user_input})
+    try:
+        st.session_state.messages.append({"role": "user", "content": user_input})
 
-    with st.chat_message("user"):
-        st.write(user_input)
+        with st.chat_message("user"):
+            st.write(user_input)
 
-    with st.chat_message("assistant"):
-    with st.spinner("Thinking..."):
-        import io
-        import sys
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                import io
+                import sys
 
-        buffer = io.StringIO()
-        sys.stdout = buffer
+                buffer = io.StringIO()
+                sys.stdout = buffer
 
-        try:
-            run_agent(user_input)
-        except Exception as e:
-            sys.stdout = sys.__stdout__
-            st.error(f"❌ Error: {str(e)}")
-            st.stop()
+                try:
+                    run_agent(user_input)
+                except Exception as e:
+                    sys.stdout = sys.__stdout__
+                    st.error(f"❌ Agent Error: {str(e)}")
+                    st.stop()
 
-        sys.stdout = sys.__stdout__
-        output = buffer.getvalue()
+                sys.stdout = sys.__stdout__
+                output = buffer.getvalue()
+
+                if "[Agent Response]:" in output:
+                    answer = output.split("[Agent Response]:")[-1].strip()
+                else:
+                    answer = output
+
+                st.write(answer)
+
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": answer}
+                )
+
+    except Exception as e:
+        st.error(f"❌ UI Error: {str(e)}")
 
             # 👉 只保留最后回答（去掉 debug）
             if "[Agent Response]:" in output:
