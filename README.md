@@ -94,18 +94,53 @@ REVIEW_API_TOKEN=demo-review-token
 
 ## Environment Switching
 
+This project supports two database environments:
+
+- local PostgreSQL
+- Azure PostgreSQL
+
 Use `.env` as the active runtime configuration.
 
-Switch to local:
-```powershell
+### Environment Files
+
+Create and maintain these files locally:
+
+- `.env.local`
+- `.env.azure`
+
+Example local configuration:
+
+```env
+DB_URL=postgresql://postgres:YOUR_LOCAL_PASSWORD@localhost:5432/kvbb?sslmode=disable
+DB_SCHEMA=public
+
+Example Azure configuration:
+
+DB_URL=postgresql://kvbb:YOUR_AZURE_PASSWORD@kvbb-demo-pg.postgres.database.azure.com:5432/kvbb?sslmode=require
+DB_SCHEMA=public
+
+Switch to Local
 Copy-Item .env.local .env -Force
 
-Switch to Azure:
+Switch to Azure
 Copy-Item .env.azure .env -Force
 
-Verify active configuration:
-
+Verify Active Configuration
 python -c "from shared.config import get_business_data_config; print(get_business_data_config())"
+
+Expected result:
+
+local mode → localhost:5432/kvbb
+Azure mode → kvbb-demo-pg.postgres.database.azure.com:5432/kvbb
+
+Local Verification
+python -c "from servers.business_data.tools import get_case_status; print(get_case_status({'case_id':'KVBB-12345'}))"
+python -c "from servers.business_data.tools import search_cases; print(search_cases({'filters': {'customer_id': 'C-10001'}, 'limit': 20}))"
+
+Azure Verification
+python -c "from servers.business_data.tools import get_case_status; print(get_case_status({'case_id':'KVBB-2026-K9G89'}))"
+python -c "from servers.business_data.tools import search_cases; print(search_cases({'filters': {}, 'limit': 3}))"
+python -c "from servers.business_data.tools import search_cases; print(search_cases({'filters': {'statuses': ['pending_review']}, 'limit': 5}))"
 
 
 
