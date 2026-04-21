@@ -47,3 +47,15 @@ if user_input:
             st.session_state.messages.append(
                 {"role": "assistant", "content": answer}
             )
+
+
+col1, col2, col3 = st.columns(3)
+
+if col1.button("Check Status"):
+    user_input = "status of KVBB-2026-K9G89"
+
+if col2.button("Explain Rejection"):
+    user_input = "Why was KVBB-2026-K9G89 rejected?"
+
+if col3.button("Recent Cases"):
+    user_input = "show me recent cases"
