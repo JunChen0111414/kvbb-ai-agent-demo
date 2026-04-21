@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "business-data": {
+      "command": "python",
+      "args": ["servers/business_data/server.py"],
+      "env": {
+        "DB_URL": "${DB_URL}",
+        "DB_SCHEMA": "${DB_SCHEMA}"
+      }
+    },
+    "notification": {
+      "command": "python",
+      "args": ["servers/notification/server.py"],
+      "env": {
+        "MAIL_API_BASE": "${MAIL_API_BASE}",
+        "MAIL_API_KEY": "${MAIL_API_KEY}"
+      }
+    },
+    "status": {
+      "command": "python",
+      "args": ["servers/status/server.py"],
+      "env": {
+        "STATUS_API_BASE": "${STATUS_API_BASE}",
+        "STATUS_API_TOKEN": "${STATUS_API_TOKEN}"
+      }
+    },
+    "human-review": {
+      "command": "python",
+      "args": ["servers/human_review/server.py"],
+      "env": {
+        "REVIEW_API_BASE": "${REVIEW_API_BASE}",
+        "REVIEW_API_TOKEN": "${REVIEW_API_TOKEN}"
+      }
+    }
+  }
+}
