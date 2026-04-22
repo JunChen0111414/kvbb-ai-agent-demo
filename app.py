@@ -5,6 +5,22 @@ st.set_page_config(page_title="KVBB AI Assistant", layout="wide")
 
 st.title("🤖 KVBB AI Assistant")
 
+# ===== KPI Dashboard =====
+from servers.analytics.tools import get_case_statistics
+
+try:
+    stats = get_case_statistics()
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("🟡 Pending", stats["pending"])
+    col2.metric("🔵 In Progress", stats["in_progress"])
+    col3.metric("🟢 Approved", stats["approved"])
+    col4.metric("🔴 Rejected", stats["rejected"])
+
+except Exception as e:
+    st.warning(f"KPI not available: {e}")
+
 # 初始化聊天历史
 if "messages" not in st.session_state:
     st.session_state.messages = []
