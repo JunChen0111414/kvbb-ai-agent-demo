@@ -6,7 +6,11 @@ st.set_page_config(page_title="KVBB AI Assistant", layout="wide")
 st.title("🤖 KVBB AI Assistant")
 
 # ===== KPI Dashboard =====
-from servers.analytics.tools import get_case_statistics
+from servers.analytics.tools import (
+    get_case_statistics,
+    get_case_trend,
+    get_cases_by_status
+)
 
 stats = get_case_statistics()
 
@@ -14,13 +18,21 @@ st.markdown("## 📊 KVBB Dashboard")
 
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("🟡 Pending Review", stats["pending"])
-col2.metric("🔵 In Progress", stats["in_progress"])
-col3.metric("🟢 Approved", stats["approved"])
-col4.metric("🔴 Rejected", stats["rejected"])
+if col1.button(f"🟡 Pending ({stats['pending']})"):
+    st.session_state["selected_status"] = "pending"
+
+if col2.button(f"🔵 In Progress ({stats['in_progress']})"):
+    st.session_state["selected_status"] = "in_progress"
+
+if col3.button(f"🟢 Approved ({stats['approved']})"):
+    st.session_state["selected_status"] = "approved"
+
+if col4.button(f"🔴 Rejected ({stats['rejected']})"):
+    st.session_state["selected_status"] = "rejected"
 
 st.divider()
 
+# ===== Chart =====
 import pandas as pd
 
 data = pd.DataFrame({
@@ -36,83 +48,75 @@ data = pd.DataFrame({
 st.subheader("📊 Case Distribution")
 st.bar_chart(data.set_index("Status"))
 
-from servers.analytics.tools import get_case_trend
-
 trend = get_case_trend()
-
 df = pd.DataFrame(trend)
 
 st.subheader("📈 Cases Over Time")
-st.line_chart(df.set_index("date"))
+if not df.empty:
+    st.line_chart(df.set_index("date"))
 
-st.markdown("### 📊 Overview")
+# ===== Case List (Drill-down) =====
+if "selected_status" in st.session_state:
+    status = st.session_state["selected_status"]
 
-# 初始化聊天历史
+    st.subheader(f"📂 Cases: {status.upper()}")
+
+    cases = get_cases_by_status(status)
+
+    for case in cases:
+        if st.button(f"📄 {case['case_id']}"):
+            st.session_state["selected_case"] = case["case_id"]
+
+        st.markdown(f"""
+        <div style="
+            border:1px solid #ddd;
+            border-radius:8px;
+            padding:10px;
+            margin-bottom:8px;
+            background:#fafafa;
+        ">
+            <b>{case['case_id']}</b><br>
+            Status: {case['status']}<br>
+            Created: {case['created_at']}
+        </div>
+        """, unsafe_allow_html=True)
+
+# ===== Case Detail Page =====
+from servers.business_data.tools import get_case_status
+from servers.status.tools import get_processing_summary
+
+if "selected_case" in st.session_state:
+    case_id = st.session_state["selected_case"]
+
+    st.divider()
+    st.subheader(f"📄 Case Detail: {case_id}")
+
+    if st.button("⬅ Back"):
+        del st.session_state["selected_case"]
+        st.rerun()
+
+    case_data = get_case_status({"case_id": case_id})
+    summary = get_processing_summary({"case_id": case_id})
+
+    st.markdown("### 🧾 Case Info")
+    st.markdown(f"""
+    **Status:** {case_data.get("status")}  
+    **Substatus:** {case_data.get("substatus")}  
+    **Owner:** {case_data.get("owner_team")}  
+    **Updated:** {case_data.get("updated_at")}  
+    """)
+
+    st.markdown("### ⚙️ Processing Summary")
+    st.write(summary)
+
+# ===== Chat =====
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# ---------- 卡片渲染 ----------
-def render_case(case):
-    status = case.get("status", "").lower()
-
-    if "pending" in status:
-        color = "🟡"
-    elif "progress" in status:
-        color = "🔵"
-    elif "approved" in status:
-        color = "🟢"
-    else:
-        color = "⚪"
-
-    st.markdown(f"""
-    <div style="
-        border:1px solid #ddd;
-        border-radius:10px;
-        padding:12px;
-        margin-bottom:10px;
-        background-color:#fafafa;
-    ">
-        <b>{color} {case.get('case_id')}</b><br>
-        <small>Created: {case.get('created_at')}</small><br>
-        <small>Status: {case.get('status')}</small>
-    </div>
-    """, unsafe_allow_html=True)
-
-# ---------- 解析列表 ----------
-def try_render_cases(answer: str):
-    import json
-
-    try:
-        data = json.loads(answer)
-
-        if isinstance(data, dict) and "items" in data:
-            items = data["items"]
-
-            pending = [c for c in items if "pending" in c["status"].lower()]
-            progress = [c for c in items if "progress" in c["status"].lower()]
-
-            if pending:
-                st.header("🟡 Pending Review")
-                for c in pending:
-                    render_case(c)
-
-            if progress:
-                st.header("🔵 In Progress")
-                for c in progress:
-                    render_case(c)
-
-            return True
-    except:
-        return False
-
-    return False
-
-# ---------- 显示历史 ----------
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# ---------- 快捷按钮 ----------
 col1, col2, col3 = st.columns(3)
 
 if col1.button("Check Status"):
@@ -124,13 +128,11 @@ if col2.button("Explain Rejection"):
 if col3.button("Recent Cases"):
     st.session_state["preset"] = "show me recent cases"
 
-# ---------- 输入 ----------
 user_input = st.chat_input("Ask about a case...")
 
 if "preset" in st.session_state and not user_input:
     user_input = st.session_state.pop("preset")
 
-# ---------- 主逻辑 ----------
 if user_input:
     try:
         st.session_state.messages.append({"role": "user", "content": user_input})
@@ -140,8 +142,7 @@ if user_input:
 
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                import io
-                import sys
+                import io, sys
 
                 buffer = io.StringIO()
                 sys.stdout = buffer
@@ -161,11 +162,7 @@ if user_input:
                 else:
                     answer = output
 
-                # 👉 优先尝试卡片渲染
-                rendered = try_render_cases(answer)
-
-                if not rendered:
-                    st.markdown(answer)
+                st.markdown(answer)
 
                 st.session_state.messages.append(
                     {"role": "assistant", "content": answer}
