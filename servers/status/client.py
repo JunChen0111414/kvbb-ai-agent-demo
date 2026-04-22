@@ -52,13 +52,29 @@ class StatusClient:
             data_list = response.json()
             data = data_list[0] if isinstance(data_list, list) and data_list else {}
 
+        # 👉 业务状态映射（重点）
+        status_map = {
+            "widerspruch": "🔴 Rejected (Objection)",
+            "in_bearbeitung": "🟡 In Progress",
+            "erfolgreich": "🟢 Approved",
+        }
+
+        business_status_raw = data.get("bearbeitungsstatus", "unknown")
+        business_status = status_map.get(business_status_raw, business_status_raw)
+
         return {
             "case_id": data.get("vorgangsnummer", case_id),
+
+            # 👉 技术状态（统一）
             "workflow_status": self._normalize_workflow_status(data),
-            "case_status": data.get("bearbeitungsstatus")
-                or data.get("finalDecision")
-                or data.get("ki_ergebnis")
-                or "unknown",
+
+            # 👉 业务状态（用户看这个）
+            "case_status": business_status,
+            "display_status": business_status.replace("_", " ").title(),  # ← 这里加逗号
+
+            # 👉 原始状态（调试用，可选）
+            "raw_status": business_status_raw,
+
             "next_action": self._derive_next_action(data),
         }
 
