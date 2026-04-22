@@ -1,7 +1,7 @@
 from __future__ import annotations
-
 import json
 import os
+from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -10,7 +10,6 @@ from openai import AzureOpenAI
 
 from servers.business_data.tools import get_case_status, search_cases
 from servers.status.tools import get_workflow_status, get_processing_summary
-
 
 
 # ===== Azure OpenAI Client =====
@@ -51,22 +50,8 @@ tool_definitions = [
     {
         "type": "function",
         "function": {
-            "name": "get_workflow_status",
-            "description": "Get workflow processing status from system",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "workflow_id": {"type": "string"},
-                },
-                "required": ["workflow_id"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "get_processing_summary",
-            "description": "Get summary of workflow including decision and next action",
+            "description": "Get workflow summary of a case",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -80,17 +65,48 @@ tool_definitions = [
         "type": "function",
         "function": {
             "name": "search_cases",
-            "description": "Search cases using filters",
+            "description": (
+                "Search cases. ALWAYS include filters.\n"
+                "If user asks for recent → use last 7 days.\n"
+                "If user asks for active → use pending_review + in_progress."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "filters": {"type": "object"},
+                    "filters": {
+                        "type": "object",
+                        "properties": {
+                            "statuses": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "created_after": {"type": "string"},
+                        },
+                    },
                     "limit": {"type": "integer"},
                 },
+                "required": ["filters"],
             },
         },
     },
 ]
+
+
+# ===== HELPER: DEFAULT FILTER BUILDER =====
+def build_default_filters(user_input: str):
+    today = datetime.utcnow()
+
+    if "recent" in user_input.lower() or "last 7 days" in user_input.lower():
+        return {
+            "created_after": (today - timedelta(days=7)).strftime("%Y-%m-%d")
+        }
+
+    if "active" in user_input.lower():
+        return {
+            "statuses": ["pending_review", "in_progress"]
+        }
+
+    return {}
 
 
 # ===== AGENT LOOP =====
@@ -100,20 +116,16 @@ def run_agent(user_input: str):
             "role": "system",
             "content": (
                 "You are an enterprise workflow assistant.\n"
-                "Use tools when needed.\n"
-                "You may call multiple tools.\n"
-                "Always explain clearly.\n"
-                "You must present results in a clean business format.\n"
-                "Present results in a clean business format.\n\n"
+                "Use tools whenever data is required.\n"
+                "Never guess data.\n\n"
+
                 "Rules:\n"
-                "- Do NOT show raw technical values like 'menschliche_bearbeitung_erforderlich'\n"
-                "- Translate all internal codes into clear business language\n"
-                "- Keep responses concise and professional\n"
-                "- Focus on status, decision, and next action\n\n"
-                "Example:\n"
-                "Status: In Progress\n"
-                "Decision: Requires human review\n"
-                "Next Step: Wait for manual review\n"
+                "- Always use search_cases with filters\n"
+                "- If user says 'recent', use last 7 days\n"
+                "- If user says 'active', use pending_review + in_progress\n"
+                "- Never call search_cases without filters\n"
+                "- Output must be clean business language\n"
+                "- Do NOT show technical fields or raw codes\n"
             ),
         },
         {"role": "user", "content": user_input},
@@ -129,19 +141,22 @@ def run_agent(user_input: str):
 
         msg = response.choices[0].message
 
-        # 👉 没有 tool call → 结束
+        # 👉 没有 tool call → 输出结果
         if not msg.tool_calls:
             print("\n[Agent Response]:")
             print(msg.content)
-            break
+            return
 
-        # 👉 记录 assistant message（必须）
         messages.append(msg)
 
-        # 👉 处理所有 tool_calls（关键）
         for tool_call in msg.tool_calls:
             tool_name = tool_call.function.name
-            arguments = json.loads(tool_call.function.arguments)
+            arguments = json.loads(tool_call.function.arguments or "{}")
+
+            # 👉 自动补 filters（关键优化）
+            if tool_name == "search_cases":
+                if not arguments.get("filters"):
+                    arguments["filters"] = build_default_filters(user_input)
 
             print(f"\n[Agent] Calling tool: {tool_name}")
             print(f"[Agent] Args: {arguments}")
@@ -155,69 +170,16 @@ def run_agent(user_input: str):
 
             print("[Tool Result]:", result)
 
-            # 👉 必须逐个返回（关键修复点）
             messages.append({
                 "role": "tool",
                 "tool_call_id": tool_call.id,
                 "content": json.dumps(result),
             })
 
-    # ===== FIRST CALL =====
-    response = client.chat.completions.create(
-        model=MODEL,
-        messages=messages,
-        tools=tool_definitions,
-        tool_choice="auto",
-    )
-
-    msg = response.choices[0].message
-
-    # ===== TOOL CALL =====
-    if msg.tool_calls:
-        tool_call = msg.tool_calls[0]
-        tool_name = tool_call.function.name
-        arguments = json.loads(tool_call.function.arguments)
-
-        print("\n[Agent] Tool selected:", tool_name)
-        print("[Agent] Arguments:", arguments)
-
-        tool_func = TOOLS.get(tool_name)
-
-        try:
-            result = tool_func(arguments)
-        except Exception as e:
-            result = {"error": str(e)}
-
-        print("\n[Tool Result]:")
-        print(result)
-
-        # ===== FEEDBACK TO MODEL =====
-        messages.append(msg)
-        messages.append(
-            {
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "content": json.dumps(result),
-            }
-        )
-
-        # ===== FINAL RESPONSE =====
-        final_response = client.chat.completions.create(
-            model=MODEL,
-            messages=messages,
-        )
-
-        print("\n[Agent Response]:")
-        print(final_response.choices[0].message.content)
-
-    else:
-        print("\n[Agent Response]:")
-        print(msg.content)
-
 
 # ===== CLI =====
 if __name__ == "__main__":
-    print("🚀 KVBB MCP Agent (Azure OpenAI)")
+    print("🚀 KVBB MCP Agent (Improved)")
     print("Type 'exit' to quit")
 
     while True:
