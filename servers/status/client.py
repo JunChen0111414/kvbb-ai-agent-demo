@@ -74,6 +74,8 @@ class StatusClient:
 
             # 👉 原始状态（调试用，可选）
             "raw_status": business_status_raw,
+            "ai_result": data.get("ki_ergebnis"),
+            "human_review": data.get("human_review"),
 
             "next_action": self._derive_next_action(data),
         }
