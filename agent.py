@@ -103,6 +103,17 @@ def run_agent(user_input: str):
                 "Use tools when needed.\n"
                 "You may call multiple tools.\n"
                 "Always explain clearly.\n"
+                "You must present results in a clean business format.\n"
+                "Present results in a clean business format.\n\n"
+                "Rules:\n"
+                "- Do NOT show raw technical values like 'menschliche_bearbeitung_erforderlich'\n"
+                "- Translate all internal codes into clear business language\n"
+                "- Keep responses concise and professional\n"
+                "- Focus on status, decision, and next action\n\n"
+                "Example:\n"
+                "Status: In Progress\n"
+                "Decision: Requires human review\n"
+                "Next Step: Wait for manual review\n"
             ),
         },
         {"role": "user", "content": user_input},

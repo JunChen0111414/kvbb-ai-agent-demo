@@ -67,7 +67,7 @@ if user_input:
                 else:
                     answer = output
 
-                st.write(answer)
+                st.markdown(answer)
 
                 # 保存到历史
                 st.session_state.messages.append(
