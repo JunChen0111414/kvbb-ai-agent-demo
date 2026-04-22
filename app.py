@@ -9,12 +9,68 @@ st.title("🤖 KVBB AI Assistant")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 显示历史消息
+# ---------- 卡片渲染 ----------
+def render_case(case):
+    status = case.get("status", "").lower()
+
+    if "pending" in status:
+        color = "🟡"
+    elif "progress" in status:
+        color = "🔵"
+    elif "approved" in status:
+        color = "🟢"
+    else:
+        color = "⚪"
+
+    st.markdown(f"""
+    <div style="
+        border:1px solid #ddd;
+        border-radius:10px;
+        padding:12px;
+        margin-bottom:10px;
+        background-color:#fafafa;
+    ">
+        <b>{color} {case.get('case_id')}</b><br>
+        <small>Created: {case.get('created_at')}</small><br>
+        <small>Status: {case.get('status')}</small>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ---------- 解析列表 ----------
+def try_render_cases(answer: str):
+    import json
+
+    try:
+        data = json.loads(answer)
+
+        if isinstance(data, dict) and "items" in data:
+            items = data["items"]
+
+            pending = [c for c in items if "pending" in c["status"].lower()]
+            progress = [c for c in items if "progress" in c["status"].lower()]
+
+            if pending:
+                st.header("🟡 Pending Review")
+                for c in pending:
+                    render_case(c)
+
+            if progress:
+                st.header("🔵 In Progress")
+                for c in progress:
+                    render_case(c)
+
+            return True
+    except:
+        return False
+
+    return False
+
+# ---------- 显示历史 ----------
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        st.write(msg["content"])
+        st.markdown(msg["content"])
 
-# 快捷按钮
+# ---------- 快捷按钮 ----------
 col1, col2, col3 = st.columns(3)
 
 if col1.button("Check Status"):
@@ -26,23 +82,20 @@ if col2.button("Explain Rejection"):
 if col3.button("Recent Cases"):
     st.session_state["preset"] = "show me recent cases"
 
-# 输入框
+# ---------- 输入 ----------
 user_input = st.chat_input("Ask about a case...")
 
-# 如果点了按钮，用 preset
 if "preset" in st.session_state and not user_input:
     user_input = st.session_state.pop("preset")
 
-# 主逻辑
+# ---------- 主逻辑 ----------
 if user_input:
     try:
-        # 用户消息
         st.session_state.messages.append({"role": "user", "content": user_input})
 
         with st.chat_message("user"):
             st.write(user_input)
 
-        # Agent 回复
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 import io
@@ -61,15 +114,17 @@ if user_input:
                 sys.stdout = sys.__stdout__
                 output = buffer.getvalue()
 
-                # 提取最终回答
                 if "[Agent Response]:" in output:
                     answer = output.split("[Agent Response]:")[-1].strip()
                 else:
                     answer = output
 
-                st.markdown(answer)
+                # 👉 优先尝试卡片渲染
+                rendered = try_render_cases(answer)
 
-                # 保存到历史
+                if not rendered:
+                    st.markdown(answer)
+
                 st.session_state.messages.append(
                     {"role": "assistant", "content": answer}
                 )

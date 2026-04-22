@@ -10,6 +10,7 @@ from openai import AzureOpenAI
 
 from servers.business_data.tools import get_case_status, search_cases
 from servers.status.tools import get_workflow_status, get_processing_summary
+from servers.analytics.tools import get_case_statistics
 
 
 
@@ -29,6 +30,7 @@ TOOLS = {
     "search_cases": search_cases,
     "get_workflow_status": get_workflow_status,
     "get_processing_summary": get_processing_summary,
+    "get_case_statistics": get_case_statistics,
 }
 
 
@@ -90,6 +92,17 @@ tool_definitions = [
             },
         },
     },
+    {
+    "type": "function",
+    "function": {
+        "name": "get_case_statistics",
+        "description": "Get KPI statistics of cases (pending, in progress, approved, rejected)",
+        "parameters": {
+            "type": "object",
+            "properties": {}
+        }
+    }
+}
 ]
 
 
