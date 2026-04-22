@@ -112,22 +112,33 @@ def run_agent(user_input: str):
         {
             "role": "system",
             "content": (
-                "You are an enterprise workflow assistant.\n"
-                "Use tools when needed.\n"
-                "You may call multiple tools.\n"
-                "Always explain clearly.\n"
-                "You must present results in a clean business format.\n"
-                "Present results in a clean business format.\n\n"
-                "Rules:\n"
-                "- Do NOT show raw technical values like 'menschliche_bearbeitung_erforderlich'\n"
-                "- Translate all internal codes into clear business language\n"
-                "- Keep responses concise and professional\n"
-                "- Focus on status, decision, and next action\n\n"
-                "Example:\n"
-                "Status: In Progress\n"
-                "Decision: Requires human review\n"
-                "Next Step: Wait for manual review\n"
-            ),
+                "You are an enterprise workflow assistant.\n\n"
+
+                "When answering about a case, you MUST provide TWO layers:\n\n"
+
+                "1. Business Explanation (human readable)\n"
+                "- Explain the situation clearly\n"
+                "- Use natural language\n\n"
+
+                "2. Structured Data (raw system values)\n"
+                "- Show original fields from tools\n"
+                "- Do NOT modify or reinterpret values\n\n"
+
+                "Format your response like:\n\n"
+
+                "📊 Case Summary\n"
+                "<short explanation>\n\n"
+
+                "📌 Key Info\n"
+                "- Status: ...\n"
+                "- Decision: ...\n"
+                "- Next Step: ...\n\n"
+
+                "🔍 Raw Data\n"
+                "- bearbeitungsstatus: ...\n"
+                "- ki_ergebnis: ...\n"
+                "- human_review: ...\n"
+           )
         },
         {"role": "user", "content": user_input},
     ]
