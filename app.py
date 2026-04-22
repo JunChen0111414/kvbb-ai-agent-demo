@@ -8,18 +8,44 @@ st.title("🤖 KVBB AI Assistant")
 # ===== KPI Dashboard =====
 from servers.analytics.tools import get_case_statistics
 
-try:
-    stats = get_case_statistics()
+stats = get_case_statistics()
 
-    col1, col2, col3, col4 = st.columns(4)
+st.markdown("## 📊 KVBB Dashboard")
 
-    col1.metric("🟡 Pending", stats["pending"])
-    col2.metric("🔵 In Progress", stats["in_progress"])
-    col3.metric("🟢 Approved", stats["approved"])
-    col4.metric("🔴 Rejected", stats["rejected"])
+col1, col2, col3, col4 = st.columns(4)
 
-except Exception as e:
-    st.warning(f"KPI not available: {e}")
+col1.metric("🟡 Pending Review", stats["pending"])
+col2.metric("🔵 In Progress", stats["in_progress"])
+col3.metric("🟢 Approved", stats["approved"])
+col4.metric("🔴 Rejected", stats["rejected"])
+
+st.divider()
+
+import pandas as pd
+
+data = pd.DataFrame({
+    "Status": ["Pending", "In Progress", "Approved", "Rejected"],
+    "Count": [
+        stats["pending"],
+        stats["in_progress"],
+        stats["approved"],
+        stats["rejected"]
+    ]
+})
+
+st.subheader("📊 Case Distribution")
+st.bar_chart(data.set_index("Status"))
+
+from servers.analytics.tools import get_case_trend
+
+trend = get_case_trend()
+
+df = pd.DataFrame(trend)
+
+st.subheader("📈 Cases Over Time")
+st.line_chart(df.set_index("date"))
+
+st.markdown("### 📊 Overview")
 
 # 初始化聊天历史
 if "messages" not in st.session_state:
