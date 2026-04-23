@@ -181,3 +181,5 @@ def get_cases_by_status(status):
             result.append(item)
 
     return result[:20]
+
+print("🔥 USING ANALYTICS (N8N)")
