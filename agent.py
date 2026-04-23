@@ -8,9 +8,12 @@ load_dotenv()
 
 from openai import AzureOpenAI
 
-from servers.business_data.tools import get_case_status, search_cases
+from servers.analytics.tools import (
+    get_case_statistics,
+    get_cases_by_status
+)
 from servers.status.tools import get_workflow_status, get_processing_summary
-from servers.analytics.tools import get_case_statistics
+
 
 
 
@@ -21,13 +24,15 @@ client = AzureOpenAI(
     azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
 )
 
+
+from servers.business_data.tools import get_case_status, search_cases
 MODEL = os.environ["AZURE_OPENAI_DEPLOYMENT"]
 
 
 # ===== MCP TOOL REGISTRY =====
 TOOLS = {
-    "get_case_status": get_case_status,
-    "search_cases": search_cases,
+    "get_case_statistics": get_case_statistics,
+    "get_cases_by_status": get_cases_by_status,
     "get_workflow_status": get_workflow_status,
     "get_processing_summary": get_processing_summary,
     "get_case_statistics": get_case_statistics,
