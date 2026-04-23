@@ -1,9 +1,7 @@
 import streamlit as st
 from agent import run_agent
 
-import os
-st.write("DEPLOYMENT:", os.getenv("AZURE_OPENAI_DEPLOYMENT"))
-st.write("ENDPOINT:", os.getenv("AZURE_OPENAI_ENDPOINT"))
+
 
 
 st.set_page_config(page_title="KVBB AI Assistant", layout="wide")
