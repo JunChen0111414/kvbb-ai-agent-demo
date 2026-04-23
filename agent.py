@@ -1,195 +1,121 @@
 from __future__ import annotations
 
-import json
 import os
+import re
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 
 # ===== 加载环境变量 =====
 load_dotenv()
 
-# ===== 导入工具（统一数据源：n8n）=====
-from servers.analytics.tools import (
-    get_case_statistics,
-    get_cases_by_status
-)
-from servers.status.tools import (
-    get_workflow_status,
-    get_processing_summary
-)
-
-# ===== Azure OpenAI Client =====
+# ===== Azure OpenAI Client（GPT-5.x 必须用这个 version）=====
 client = AzureOpenAI(
     api_key=os.environ["AZURE_OPENAI_API_KEY"],
-    api_version="2024-02-01",
+    api_version="2025-04-01-preview",
     azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
 )
 
 MODEL = os.environ["AZURE_OPENAI_DEPLOYMENT"]
 
-# ===== TOOL REGISTRY =====
-TOOLS = {
-    "search_cases": get_cases_by_status,
-    "get_case_statistics": get_case_statistics,
-    "get_workflow_status": get_workflow_status,
-    "get_processing_summary": get_processing_summary,
-}
-
-# ===== TOOL SCHEMAS =====
-tool_definitions = [
-    {
-        "type": "function",
-        "function": {
-            "name": "search_cases",
-            "description": "Get recent cases or filter by status",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "status": {"type": "string"},
-                    "limit": {"type": "integer"}
-                }
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_case_statistics",
-            "description": "Get KPI statistics of cases",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_workflow_status",
-            "description": "Get workflow processing status",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "workflow_id": {"type": "string"}
-                },
-                "required": ["workflow_id"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_processing_summary",
-            "description": "Get workflow summary for a case",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "case_id": {"type": "string"}
-                },
-                "required": ["case_id"]
-            }
-        }
-    }
-]
-
-# ===== TOOL EXECUTION（关键）=====
-def execute_tool(tool_name, arguments):
-    tool_func = TOOLS.get(tool_name)
-
-    if not tool_func:
-        return {"error": f"Tool '{tool_name}' not found"}
-
-    try:
-        if tool_name == "search_cases":
-            data = tool_func(arguments.get("status"))
-
-            # 🔥 标准化返回结构（关键）
-            return {
-                "count": len(data),
-                "items": data[:10]
-            }
-
-        elif tool_name == "get_case_statistics":
-            return tool_func()
-
-        else:
-            return tool_func(arguments)
-
-    except Exception as e:
-        return {"error": str(e)}
+# ===== 导入工具 =====
+from servers.analytics.tools import get_cases_by_status
+from servers.business_data.tools import get_case_status
 
 
-# ===== AGENT LOOP =====
-def run_agent(user_input: str):
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are an enterprise workflow assistant.\n\n"
+# ===== AGENT =====
+def run_agent(user_input: str) -> str:
 
-                "When multiple cases are returned, you MUST:\n"
-                "- Clearly list them in bullet points\n"
-                "- Include case_id, status, created_at\n\n"
+    text = user_input.lower()
 
-                "Format:\n\n"
+    # ==============================
+    # 1️⃣ Case Detail（最高优先）
+    # ==============================
+    match = re.search(r"(kvbb-\d{4}-[a-z0-9]+)", text)
+    if match:
+        case_id = match.group(1).upper()
 
-                "📊 Case Summary\n"
-                "Short explanation\n\n"
+        data = get_case_status({"case_id": case_id})
 
-                "📌 Key Info\n"
-                "- Total cases\n"
-                "- Main status trend\n\n"
+        if not data:
+            return f"❌ No data found for {case_id}"
 
-                "📋 Case List\n"
-                "- case_id | status | created_at\n\n"
+        return f"""
+📄 Case Detail: {case_id}
 
-                "🔍 Raw Data\n"
-                "- Show structured JSON\n"
-            )
-        },
-        {"role": "user", "content": user_input},
-    ]
+Status: {data.get('status')}
+Substatus: {data.get('substatus')}
+Owner: {data.get('owner_team')}
+Updated: {data.get('updated_at')}
+""".strip()
 
-    while True:
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=messages,
-            tools=tool_definitions,
-            tool_choice="auto",
+    # ==============================
+    # 2️⃣ Recent Cases
+    # ==============================
+    if "recent" in text:
+        data = get_cases_by_status()
+
+        if not data:
+            return "❌ No cases found."
+
+        return "\n".join(
+            f"{d['case_id']} | {d['status']} | {d['created_at']}"
+            for d in data[:10]
         )
 
-        msg = response.choices[0].message
+    # ==============================
+    # 3️⃣ Pending Cases
+    # ==============================
+    if "pending" in text:
+        data = get_cases_by_status("pending")
 
-        # 👉 无 tool 调用 → 直接返回
-        if not msg.tool_calls:
-            return msg.content
+        if not data:
+            return "❌ No pending cases."
 
-        messages.append(msg)
+        return "\n".join(
+            f"{d['case_id']} | {d['status']} | {d['created_at']}"
+            for d in data[:10]
+        )
 
-        for tool_call in msg.tool_calls:
-            tool_name = tool_call.function.name
-            arguments = json.loads(tool_call.function.arguments or "{}")
+    # ==============================
+    # 4️⃣ GPT Fallback（仅解释）
+    # ==============================
+    system_prompt = (
+        "You are a KVBB workflow assistant.\n"
+        "Answer clearly and concisely."
+    )
 
-            result = execute_tool(tool_name, arguments)
+    try:
+        response = client.responses.create(
+            model=MODEL,
+            input=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_input},
+            ],
+        )
 
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "content": json.dumps(result),
-            })
+        # 提取文本
+        for item in response.output:
+            if item.type == "message":
+                return item.content[0].text
+
+        return "⚠️ No response from model."
+
+    except Exception as e:
+        return f"❌ LLM Error: {str(e)}"
 
 
 # ===== CLI 测试 =====
 if __name__ == "__main__":
-    print("🚀 KVBB MCP Agent (Final Version)")
+    print("🚀 KVBB Agent (Final Stable Version)")
     print("Type 'exit' to quit")
 
     while True:
         user_input = input("\n>>> ")
+
         if user_input.lower() in ["exit", "quit"]:
             break
 
         result = run_agent(user_input)
 
-        print("\n[Agent Response]:")
+        print("\n[Agent]:")
         print(result)

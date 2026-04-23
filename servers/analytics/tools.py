@@ -22,9 +22,9 @@ if not USE_N8N and not DB_URL:
 # ===== 数据标准化（关键）=====
 def _normalize(item):
     return {
-        "case_id": item.get("vorgangsnummer"),
-        "status": item.get("bearbeitungsstatus"),
-        "created_at": item.get("eingangsdatum"),
+        "case_id": item.get("case_id") or item.get("vorgangsnummer"),
+        "status": item.get("status") or item.get("bearbeitungsstatus"),
+        "created_at": item.get("created_at") or item.get("eingangsdatum"),
         "raw": item
     }
 
@@ -32,7 +32,6 @@ def _normalize(item):
 # ===== PostgreSQL =====
 def _fetch_from_db():
     try:
-        print("👉 Using PostgreSQL data source")
 
         conn = psycopg.connect(DB_URL)
         cur = conn.cursor()
@@ -170,16 +169,31 @@ def _classify_status(raw_status: str) -> str:
         return "rejected"
 
 
-def get_cases_by_status(status):
+def get_cases_by_status(status=None):
     data = _fetch_cases()
 
-    result = []
+    cleaned = []
 
     for item in data:
-        item_status = _classify_status(item["status"])
-        if item_status == status:
-            result.append(item)
+        if not item.get("case_id"):
+            continue
 
-    return result[:20]
+        if status:
+            if _classify_status(item["status"]) != status:
+                continue
 
-print("🔥 USING ANALYTICS (N8N)")
+        cleaned.append({
+            "case_id": item["case_id"],
+            "status": item["status"],
+            "created_at": item["created_at"],
+        })
+
+    cleaned = sorted(
+        cleaned,
+        key=lambda x: x["created_at"] or "",
+        reverse=True
+    )[:10]
+
+    print("DEBUG get_cases_by_status:", cleaned[:3])
+
+    return cleaned
