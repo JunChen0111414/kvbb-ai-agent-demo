@@ -8,7 +8,7 @@ from openai import AzureOpenAI
 # ===== 加载环境变量 =====
 load_dotenv()
 
-# ===== 导入工具（统一数据源：analytics → n8n）=====
+# ===== 导入工具（统一数据源：n8n）=====
 from servers.analytics.tools import (
     get_case_statistics,
     get_cases_by_status
@@ -27,7 +27,7 @@ client = AzureOpenAI(
 
 MODEL = os.environ["AZURE_OPENAI_DEPLOYMENT"]
 
-# ===== MCP TOOL REGISTRY =====
+# ===== TOOL REGISTRY =====
 TOOLS = {
     "search_cases": get_cases_by_status,
     "get_case_statistics": get_case_statistics,
@@ -35,7 +35,7 @@ TOOLS = {
     "get_processing_summary": get_processing_summary,
 }
 
-# ===== TOOL SCHEMAS（必须完全匹配TOOLS）=====
+# ===== TOOL SCHEMAS =====
 tool_definitions = [
     {
         "type": "function",
@@ -92,7 +92,7 @@ tool_definitions = [
     }
 ]
 
-# ===== TOOL 调用适配器（关键）=====
+# ===== TOOL EXECUTION（关键）=====
 def execute_tool(tool_name, arguments):
     tool_func = TOOLS.get(tool_name)
 
@@ -100,9 +100,14 @@ def execute_tool(tool_name, arguments):
         return {"error": f"Tool '{tool_name}' not found"}
 
     try:
-        # 🔥 参数适配（关键）
         if tool_name == "search_cases":
-            return tool_func(arguments.get("status"))
+            data = tool_func(arguments.get("status"))
+
+            # 🔥 标准化返回结构（关键）
+            return {
+                "count": len(data),
+                "items": data[:10]
+            }
 
         elif tool_name == "get_case_statistics":
             return tool_func()
@@ -121,18 +126,25 @@ def run_agent(user_input: str):
             "role": "system",
             "content": (
                 "You are an enterprise workflow assistant.\n\n"
-                "Always provide TWO layers:\n\n"
+
+                "When multiple cases are returned, you MUST:\n"
+                "- Clearly list them in bullet points\n"
+                "- Include case_id, status, created_at\n\n"
+
+                "Format:\n\n"
 
                 "📊 Case Summary\n"
-                "- Clear explanation\n\n"
+                "Short explanation\n\n"
 
                 "📌 Key Info\n"
-                "- Status\n"
-                "- Decision\n"
-                "- Next Step\n\n"
+                "- Total cases\n"
+                "- Main status trend\n\n"
+
+                "📋 Case List\n"
+                "- case_id | status | created_at\n\n"
 
                 "🔍 Raw Data\n"
-                "- Show original fields\n"
+                "- Show structured JSON\n"
             )
         },
         {"role": "user", "content": user_input},
@@ -148,7 +160,7 @@ def run_agent(user_input: str):
 
         msg = response.choices[0].message
 
-        # 👉 没有 tool call → 结束
+        # 👉 无 tool 调用 → 直接返回
         if not msg.tool_calls:
             return msg.content
 
@@ -167,9 +179,9 @@ def run_agent(user_input: str):
             })
 
 
-# ===== CLI 测试（可选）=====
+# ===== CLI 测试 =====
 if __name__ == "__main__":
-    print("🚀 KVBB MCP Agent (Production Ready)")
+    print("🚀 KVBB MCP Agent (Final Version)")
     print("Type 'exit' to quit")
 
     while True:
@@ -178,5 +190,6 @@ if __name__ == "__main__":
             break
 
         result = run_agent(user_input)
+
         print("\n[Agent Response]:")
         print(result)
