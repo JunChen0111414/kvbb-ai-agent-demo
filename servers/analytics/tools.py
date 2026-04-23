@@ -103,16 +103,8 @@ def get_case_statistics(payload=None):
     }
 
     for item in data:
-        status = (item["status"] or "").lower()
-
-        if status in ["widerspruch", "pending_review"]:
-            stats["pending"] += 1
-        elif status in ["in_bearbeitung", "in_progress"]:
-            stats["in_progress"] += 1
-        elif status in ["erfolgreich", "approved"]:
-            stats["approved"] += 1
-        else:
-            stats["rejected"] += 1
+        bucket = _classify_status(item["status"])
+        stats[bucket] += 1
 
     return stats
 
@@ -135,21 +127,27 @@ def get_case_trend():
 
 
 # ===== Drill-down =====
+def _classify_status(raw_status: str) -> str:
+    s = (raw_status or "").lower()
+
+    if s in ["widerspruch", "pending_review"]:
+        return "pending"
+    elif s in ["in_bearbeitung", "in_progress"]:
+        return "in_progress"
+    elif s in ["erfolgreich", "approved"]:
+        return "approved"
+    else:
+        return "rejected"
+
+
 def get_cases_by_status(status):
     data = _fetch_cases()
 
     result = []
 
     for item in data:
-        s = (item["status"] or "").lower()
-
-        if status == "pending" and s == "widerspruch":
-            result.append(item)
-        elif status == "in_progress" and s == "in_bearbeitung":
-            result.append(item)
-        elif status == "approved" and s == "erfolgreich":
-            result.append(item)
-        elif status == "rejected":
+        item_status = _classify_status(item["status"])
+        if item_status == status:
             result.append(item)
 
     return result[:20]
