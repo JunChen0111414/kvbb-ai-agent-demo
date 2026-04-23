@@ -25,7 +25,7 @@ client = AzureOpenAI(
 )
 
 
-from servers.business_data.tools import get_case_status, search_cases
+
 MODEL = os.environ["AZURE_OPENAI_DEPLOYMENT"]
 
 
@@ -44,7 +44,6 @@ tool_definitions = [
     {
         "type": "function",
         "function": {
-            "name": "get_case_status",
             "description": "Get detailed case status from business database",
             "parameters": {
                 "type": "object",
