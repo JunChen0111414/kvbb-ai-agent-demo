@@ -1,6 +1,7 @@
 import streamlit as st
 from agent import run_agent
 
+
 st.set_page_config(page_title="KVBB AI Assistant", layout="wide")
 
 st.title("🤖 KVBB AI Assistant")
@@ -12,11 +13,14 @@ from servers.analytics.tools import (
     get_cases_by_status
 )
 
+from servers.analytics.tools import get_ai_accuracy 
+ai_stats = get_ai_accuracy()
+
 stats = get_case_statistics()
 
 st.markdown("## 📊 KVBB Dashboard")
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 
 if col1.button(f"🟡 Pending ({stats['pending']})"):
     st.session_state["selected_status"] = "pending"
@@ -30,6 +34,10 @@ if col3.button(f"🟢 Approved ({stats['approved']})"):
 if col4.button(f"🔴 Rejected ({stats['rejected']})"):
     st.session_state["selected_status"] = "rejected"
 
+col5.metric(
+    "🧠 AI Accuracy",
+    f"{ai_stats['accuracy']}%"
+)
 st.divider()
 
 # ===== Chart =====

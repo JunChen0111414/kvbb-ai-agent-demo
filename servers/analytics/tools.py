@@ -108,6 +108,36 @@ def get_case_statistics(payload=None):
 
     return stats
 
+def get_ai_accuracy():
+    data = _fetch_cases()
+
+    correct = 0
+    incorrect = 0
+
+    for item in data:
+        review = (item["raw"].get("human_review") or "").lower()
+
+        if review == "ai_correct":
+            correct += 1
+        elif review == "ai_incorrect":
+            incorrect += 1
+
+    total = correct + incorrect
+
+    if total == 0:
+        return {
+            "accuracy": 0,
+            "correct": 0,
+            "incorrect": 0
+        }
+
+    accuracy = round((correct / total) * 100, 2)
+
+    return {
+        "accuracy": accuracy,
+        "correct": correct,
+        "incorrect": incorrect
+    }
 
 # ===== Trend =====
 def get_case_trend():
