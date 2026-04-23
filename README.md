@@ -221,6 +221,5 @@ Planned next improvements:
 connect status to a real API
 connect notification to a real mail or messaging API
 connect human_review to a real review workflow system
-add Azure PostgreSQL environment configuration
 integrate MCP servers with a real agent runtime
 =======
