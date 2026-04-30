@@ -20,11 +20,18 @@ if not USE_N8N and not DB_URL:
 
 
 # ===== 数据标准化（关键）=====
+
 def _normalize(item):
     return {
         "case_id": item.get("case_id") or item.get("vorgangsnummer"),
         "status": item.get("status") or item.get("bearbeitungsstatus"),
         "created_at": item.get("created_at") or item.get("eingangsdatum"),
+
+        # 👇 新增关键字段
+        "review_reason": item.get("review_reason"),
+        "ki_reason": item.get("ki_begruendung"),
+        "ai_result": item.get("ki_ergebnis"),
+
         "raw": item
     }
 
@@ -186,6 +193,7 @@ def get_cases_by_status(status=None):
             "case_id": item["case_id"],
             "status": item["status"],
             "created_at": item["created_at"],
+            "review_reason": item.get("review_reason"),
         })
 
     cleaned = sorted(
@@ -197,3 +205,36 @@ def get_cases_by_status(status=None):
     print("DEBUG get_cases_by_status:", cleaned[:3])
 
     return cleaned
+
+# ===== Rejection Reasons =====
+def get_rejection_cases():
+    data = _fetch_cases()
+
+    rejected = [
+        item for item in data
+        if item.get("review_reason")
+    ]
+
+    result = [
+        {
+            "case_id": item["case_id"],
+            "status": item.get("status"),
+            "review_reason": item.get("review_reason"),
+            "created_at": item.get("created_at"),
+        }
+        for item in rejected
+        if item.get("case_id")
+    ]
+
+    result = sorted(
+        result,
+        key=lambda x: x["created_at"] or "",
+        reverse=True
+    )[:20]
+
+    print("DEBUG rejection cases:", result[:3])
+
+    return result
+
+def get_rejected_cases():
+    return get_rejection_cases()

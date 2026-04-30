@@ -18,7 +18,7 @@ client = AzureOpenAI(
 MODEL = os.environ["AZURE_OPENAI_DEPLOYMENT"]
 
 # ===== 导入工具 =====
-from servers.analytics.tools import get_cases_by_status
+from servers.analytics.tools import get_cases_by_status, get_rejection_cases
 from servers.business_data.tools import get_case_status
 
 
@@ -67,15 +67,56 @@ Updated: {data.get('updated_at')}
     # ==============================
     if "pending" in text:
         data = get_cases_by_status("pending")
-
         if not data:
             return "❌ No pending cases."
-
         return "\n".join(
             f"{d['case_id']} | {d['status']} | {d['created_at']}"
             for d in data[:10]
         )
 
+    # 4️⃣ Rejection Reasons
+    # ==============================
+    if "拒绝" in text or "reject" in text or "rejection" in text or "abgelehnt" in text:
+        data = get_rejection_cases()
+        if not data:
+            return "❌ No rejection reasons found."
+        context = "\n".join(
+            f"{d['case_id']} | {d.get('review_reason', '')}"
+            for d in data[:20]
+            if d.get("review_reason")
+        )
+
+        print("DEBUG review_reason context:", context[:500])
+
+        prompt = f"""
+
+    你是 KVBB 案件审核分析助手。
+
+    用户问题：
+    {user_input}
+
+    以下是来自 human review 的真实拒绝理由 review_reason：
+    {context}
+
+    请基于这些真实 review_reason：
+    - 总结主要拒绝原因
+    - 归类类似原因
+    - 提及相关 case_id
+    - 不要根据 status 自己推测
+    - Answer in English
+    """
+
+        response = client.responses.create(
+            model=MODEL,
+            input=[
+                {"role": "system", "content": "You analyze KVBB case review data."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        for item in response.output:
+            if item.type == "message":
+                return item.content[0].text
+            
     # ==============================
     # 4️⃣ GPT Fallback（仅解释）
     # ==============================
