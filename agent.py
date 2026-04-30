@@ -76,7 +76,7 @@ Updated: {data.get('updated_at')}
 
     # 4️⃣ Rejection Reasons
     # ==============================
-    if "Ablehnung" in text or "reject" in text or "rejection" in text or "abgelehnt" in text:
+    if "Ablehnung" in text or "Ablehnungsgründe " in text or "reject" in text or "rejection" in text or "abgelehnt" in text:
         data = get_rejection_cases()
         if not data:
             return "❌ No rejection reasons found."
