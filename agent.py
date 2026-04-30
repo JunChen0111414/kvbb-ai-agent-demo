@@ -103,7 +103,7 @@ Updated: {data.get('updated_at')}
     - 归类类似原因
     - 提及相关 case_id
     - 不要根据 status 自己推测
-    - Answer in English
+
     """
 
         response = client.responses.create(
