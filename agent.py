@@ -90,19 +90,21 @@ Updated: {data.get('updated_at')}
 
         prompt = f"""
 
-    你是 KVBB 案件审核分析助手。
+    You are a KVBB case review analysis assistant.
 
-    用户问题：
+    User question:
     {user_input}
 
-    以下是来自 human review 的真实拒绝理由 review_reason：
+    Below are real human review rejection reasons (review_reason):
     {context}
 
-    请基于这些真实 review_reason：
-    - 总结主要拒绝原因
-    - 归类类似原因
-    - 提及相关 case_id
-    - 不要根据 status 自己推测
+    Task:
+    - Identify and summarize the main rejection reasons
+    - Group similar reasons into clear categories
+    - Reference relevant case IDs where appropriate
+    - Base your answer only on the provided review_reason texts
+    - Do NOT infer or assume reasons from case status
+    - Respond in the same language as the user
 
     """
 
