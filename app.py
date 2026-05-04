@@ -67,8 +67,11 @@ if "selected_status" in st.session_state:
 
     cases = get_cases_by_status(status)
 
-    for case in cases:
-        if st.button(f"📄 {case['case_id']}"):
+    for i, case in enumerate(cases):
+        if st.button(
+           f"📄 {case['case_id']}",
+           key=f"case_list_{case['case_id']}_{i}"
+        ):
             st.session_state["selected_case"] = case["case_id"]
 
         st.markdown(f"""
@@ -215,13 +218,28 @@ for msg in st.session_state.messages:
 # ==============================
 # 快捷按钮
 # ==============================
+
+cases = get_cases_by_status()
+
+example_case = None
+if cases:
+    example_case = cases[0]["case_id"]
+
+rejected_cases = get_cases_by_status("rejected")
+
+example_rejected = None
+if rejected_cases:
+    example_rejected = rejected_cases[0]["case_id"]
+
 col1, col2, col3 = st.columns(3)
 
 if col1.button("Check Status"):
-    st.session_state["preset"] = "status of KVBB-2026-K9G89"
+    if example_case:
+        st.session_state["preset"] = f"status of {example_case}"
 
 if col2.button("Explain Rejection"):
-    st.session_state["preset"] = "Why was KVBB-2026-K9G89 rejected?"
+    if example_rejected:
+        st.session_state["preset"] = f"Why was {example_rejected} rejected?"
 
 if col3.button("Recent Cases"):
     st.session_state["preset"] = "show me recent cases"
