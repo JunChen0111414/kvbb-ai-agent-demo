@@ -27,13 +27,21 @@ def _normalize(item):
         "status": item.get("status") or item.get("bearbeitungsstatus"),
         "created_at": item.get("created_at") or item.get("eingangsdatum"),
 
-        # 👇 新增关键字段
+
+        # 👇 新增这些
+        "updated_at": item.get("updated_at") or item.get("updatedAt"),
+        "substatus": item.get("human_review"),  # 或你自定义
+        "owner_team": "KVBB",  # 如果没有就给默认值
+
+        # AI & Review
         "review_reason": item.get("review_reason"),
         "ki_reason": item.get("ki_begruendung"),
         "ai_result": item.get("ki_ergebnis"),
 
+        # 原始数据
         "raw": item
     }
+
 
 
 # ===== PostgreSQL =====

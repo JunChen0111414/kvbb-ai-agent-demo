@@ -87,7 +87,6 @@ if "selected_status" in st.session_state:
 
 # ===== Case Detail =====
 from servers.business_data.tools import get_case_status
-from servers.status.tools import get_processing_summary
 
 if "selected_case" in st.session_state:
     case_id = st.session_state["selected_case"]
@@ -100,8 +99,7 @@ if "selected_case" in st.session_state:
         st.rerun()
 
     case_data = get_case_status({"case_id": case_id})
-    summary = get_processing_summary({"case_id": case_id})
-
+    
     # ==============================
     # 📊 Summary（更自然一点）
     # ==============================
@@ -112,8 +110,6 @@ This case is currently **{case_data.get("status")}**.
 
 It is handled by **{case_data.get("owner_team") or "N/A"}**  
 and was last updated on **{case_data.get("updated_at")}**.
-
-{summary if summary else ""}
 """)
 
     # ==============================
@@ -134,15 +130,17 @@ and was last updated on **{case_data.get("updated_at")}**.
     with st.expander("🔍 Raw Data"):
         st.json(case_data)
 
-    # ==============================
-    # ⚙️ Processing Summary（结构化）
-    # ==============================
-    st.markdown("### ⚙️ Processing Summary")
+    st.markdown("### 🤖 AI Explanation")
 
-    if isinstance(summary, dict):
-        st.json(summary)
-    else:
-        st.write(summary)
+if "explanation" not in st.session_state:
+    st.session_state["explanation"] = None
+
+if st.button("Explain this case"):
+    with st.spinner("Analyzing case..."):
+        st.session_state["explanation"] = run_agent(f"Explain case {case_id}")
+
+if st.session_state["explanation"]:
+    st.markdown(st.session_state["explanation"])
 
 
 # ===== Chat =====
